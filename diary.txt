@@ -1,1 +1,2 @@
-13/09/17	18:00	18:15	put the first real entry in diary.txt (delete this line!)
+18/09/17	14:00	14:15	Setting up of the ass files/ git SSH keys etc.
+
