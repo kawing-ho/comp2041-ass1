@@ -6,3 +6,4 @@ vgcore.*
 *.pyc
 __pycache__
 *.zip
+*.sh
