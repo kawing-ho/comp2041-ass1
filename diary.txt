@@ -1,2 +1,4 @@
-18/09/17	14:00	14:15	Setting up of the ass files/ git SSH keys etc.
+18/09/17	14:00	14:15	Setup	Setting up of the ass files/ git SSH keys etc.
+18/09/17	17:00	18:00   Coding	Implementing features for Subset 0
+
 
