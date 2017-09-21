@@ -7,3 +7,4 @@ vgcore.*
 __pycache__
 *.zip
 *.sh
+.*
