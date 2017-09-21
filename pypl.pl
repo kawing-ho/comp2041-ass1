@@ -19,6 +19,21 @@ sub addDollar {
 	return join(" ",@buff);
 }
 
+#Look for print statements in a string and FORMAT them !
+sub formatPrint {
+	my $in = shift(@_);
+	print" PRINT\n";
+	$in =~ /print\((.*)\)/ or die;
+	if($1 ne "") {
+		my $t = $1;
+		print "$t\n";
+		$in =~ s/print\(/print\"/g;
+		$in =~ s/$t\);/$t\\n\";/;
+	}
+	
+   return $in
+}
+
 
 while ($line = <>) {
 
@@ -44,9 +59,11 @@ while ($line = <>) {
     	  		
     	  		if($op eq "+") {
     	  			$printz = $variables{$v1} + $variables{$v2};
-    	  		} elsif ( $op eq "*") {
+    	  		} elsif ($op eq "*") {
     	  			$printz = $variables{$v1} * $variables{$v2};
-    	  		} elsif ($op eq "-") {   #don't forget exponentiation
+    	  		} elsif ($op eq "**") {
+    	  			$printz = $variables{$v1} ** $variables{$v2};
+    	  		} elsif ($op eq "-") {
     	  			$printz = $variables{$v1} - $variables{$v2};
     	  		} elsif ($op eq "/") {
     	  			$printz = $variables{$v1} / $variables{$v2};
@@ -76,6 +93,7 @@ while ($line = <>) {
     	 if($3 eq "") {   #on different line
     	 	print "$1"."while($condition) "."\{\n";
     	 } else {			#on same line
+    	 	$statement = formatPrint($statement);
     	 	print "$1"."while($condition) "."\{ \n$1\t"."$statement\; \n$1"."\}\n";
     	 }
     
