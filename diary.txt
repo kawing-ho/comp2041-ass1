@@ -3,3 +3,4 @@
 20/09/17	15:15   15:50	Debugging	Fixing features for subset 1
 21/09/17	14:15	16:00	Coding	Adding more complex logic for print translation
 21/09/17        16:00   18:00   Coding  Started subset 2
+22/09/17        11:50   12:50   Codign  Starting subset 3

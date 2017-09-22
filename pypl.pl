@@ -4,6 +4,7 @@
 # written by Ka Wing Ho z5087077 18th September 2017
 
 our %variables = ();
+our $closingExpected = 0;
 
 #All this work just for adding '$'
 sub addDollar {
@@ -22,16 +23,40 @@ sub addDollar {
 #Look for print statements in a string and FORMAT them !
 sub formatPrint {
 	my $in = shift(@_);
-	print" PRINT\n";
 	$in =~ /print\((.*)\)/ or die;
 	if($1 ne "") {
 		my $t = $1;
-		print "$t\n";
-		$in =~ s/print\(/print\"/g;
-		$in =~ s/$t\);/$t\\n\";/;
+		$in =~ s/print\(.*\);/print\"$t\\n\";/g;
 	}
 	
-   return $in
+   return $in;
+}
+
+#adds extra brackets if number of brackets in a line are mismatched
+sub checkBrace {
+	my $in = shift(@_);
+	my $openCount = 0;
+	my $closeCount = 0;
+	
+	foreach $char (split "",$in) {
+		$openCount++ if ($char eq "(");
+		
+		$closeCount++ if ($char eq ")");
+	}
+	
+	if($openCount != $closeCount) {
+		while ($openCount < $closeCount) {
+			$in = "(".$in;
+			$openCount++;
+		}
+		
+		while ($closeCount < $openCount) {
+			$in = $in.")";
+			$closeCount++;
+		}
+	}
+	
+	return $in;
 }
 
 
@@ -41,10 +66,15 @@ while ($line = <>) {
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
 	
 	 # Blank & comment lines can be passed unchanged
-    } elsif ($line =~ /^\s*(#|$)/) { print $line;
+	 # if a blank line is read in and a closing brace expected add one
+    } elsif ($line =~ /^\s*(#|$)/) {
+    	if($line =~ /$/ && $closingExpected > 0) {
+    	  print "}\n";
+    	  $closingExpected--;
+    	} else { print $line; }
 
 	 # print(...) statements
-    } elsif ($line =~ /^(\s*)print\(([\"\']?[^\)\'\"]+[\"\']?)\)/) {
+    } elsif ($line =~ /^(\s*)print\s*\(([\"\']?[^\)\'\"]+[\"\']?)\)/) {
     	  
     	  #var substitution
     	  $printz = addDollar($2);
@@ -72,23 +102,35 @@ while ($line = <>) {
     	  		} else { print"# Unknown operator $op\n"; }
     	  }
     	  
-        print "$space"."print"." \""."$printz"."\\n\";\n";
+    	  #remove extra quotes
+    	  $printz =~ s/^[\"\']//g; $printz =~ s/[\"\']$//g;
+    	  print "$space"."print"." \""."$printz"."\\n\";\n";
         
     #if statements
-    } elsif ($line =~ /^(\s*)if\(?([^\:]*)\)?:\s*(.*)/) {
+    #need to support logical operators as well
+    } elsif ($line =~ /^(\s*)if\(?([^\:]+):\s*(.*)/) {
+    	 $space = $1;
     	 $condition = addDollar($2);
     	 $statement = addDollar($3);
     	 
-    	 if($3 eq "") {   #on different line
-    	 	print "$1"."if($condition) "."\{\n";
+    	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g;
+    	 $condition = checkBrace($condition); 
+    	 
+    	 if(!defined $s3 || $s3 eq "") {   #on different line
+    	 	print "$space"."if($condition) "."\{\n";
+    	 	$closingExpected++;
     	 } else {          #on same line
-    	 	print "$1"."if($condition) "."\{ \n$1\t"."$statement\; \n$1"."\}\n";
+    	 	$statement = formatPrint($statement);
+    	 	print "$space"."if($condition) "."\{ \n$1\t"."$statement\; \n$1"."\}\n";
     	 }
     
     #while loop
+    #need to support logical operators as well
     } elsif ($line =~ /^(\s*)while\(?([^\:]*)\)?:\s*(.*)/) {
     	 $condition = addDollar($2);
     	 $statement = addDollar($3);
+    	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g;
+    	 $condition = checkBrace($condition);
     	 
     	 if($3 eq "") {   #on different line
     	 	print "$1"."while($condition) "."\{\n";
