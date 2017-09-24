@@ -4,5 +4,5 @@
 a = 1 + (2 + 3) + 4 * 5
 c = (0**100/10)**20
 b = a + c + (c + c**2) + (a*0)
-
-print (b)
+b = int(b)
+print (bin(b))  #to binary coz why not ?
