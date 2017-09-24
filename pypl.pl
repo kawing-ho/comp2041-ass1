@@ -23,7 +23,7 @@ sub addDollar {
 #Look for print statements in a string and FORMAT them !
 sub formatPrint {
 	my $in = shift(@_);
-	$in =~ /print\((.*)\)/ or die;
+	$in =~ /print\((.*)\)/;
 	if($1 ne "") {
 		my $t = $1;
 		$in =~ s/print\(.*\);/print\"$t\\n\";/g;
@@ -62,6 +62,20 @@ sub checkBrace {
 
 while ($line = <>) {
 
+	 #Continue and break
+	 if ($line =~ /continue/) {
+	 	  $line =~ s/continue/next\;/g;
+	 	  print STDERR "Replacing continue";
+	 	  print $line;
+	 }
+	 
+	 if ($line =~ /break/) {
+	 	 $line =~ s/break/last\;/g;
+	 	 print STDERR "Replacing break";
+	 	 print $line;
+	 }
+
+
 	 # translate #! line
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
 	
@@ -77,7 +91,7 @@ while ($line = <>) {
     } elsif ($line =~ /^(\s*)print\s*\(([\"\']?[^\)\'\"]+[\"\']?)\)/) {
     	  
     	  #var substitution
-    	  $printz = addDollar($2);
+		  $printz = addDollar($2);
     	  $space  = $1;
     	  
     	  #doing math in printz (no quotes and contains math operators)
@@ -116,12 +130,12 @@ while ($line = <>) {
     	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g;
     	 $condition = checkBrace($condition); 
     	 
-    	 if(!defined $s3 || $s3 eq "") {   #on different line
+    	 if(!defined $3 || $3 eq "") {   #on different line
     	 	print "$space"."if($condition) "."\{\n";
     	 	$closingExpected++;
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$space"."if($condition) "."\{ \n$1\t"."$statement\; \n$1"."\}\n";
+    	 	print "$space"."if($condition) "."\{ $1"."$statement\; $1"."\}\n";
     	 }
     
     #while loop
