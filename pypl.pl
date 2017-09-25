@@ -3,30 +3,60 @@
 # COMP2041 assignment 1:  http://www.cse.unsw.edu.au/~cs2041/assignments/pypl
 # written by Ka Wing Ho z5087077 18th September 2017
 
+#Todo / Haven't supported
+# - comparison operators: <, <=, >, >=, !=, ==
+# - bitwise operators: | ^ & << >> ~
+
+
 our %variables = ();
 our $closingExpected = 0;
 
+
 #All this work just for adding '$'
+#find a way to ignore any variables in quotes
+
+#split by space will give things like print('a 
+#need to avoid anything in quotes as well
+
 sub addDollar {
 	my $in = shift(@_);
+	print "#addDollar to $in\n";
+	my $QUOTE = 0;
 	
-	my @buff = split(" ",$in);   
+	my @buff = split(" ",$in);
 	foreach $item (@buff) {
+		
+		#if quote detected toggle on/off
+		if ($item =~ /[\'\"]/) {
+			print "$item matched quote\n";
+			if($QUOTE == 0) { $QUOTE = 1; } else { $QUOTE = 0; }
+		}
+		
+		if($QUOTE == 1) { print "skipping $item \n";}
+		next if($QUOTE == 1);
+		
 		foreach $var (keys %variables) {
 			next if $item =~ /^\$.*/;
+			next if $item =~ /[a-zA-Z]$var/;
+			next if $item =~ /$var[a-zA-Z]/;
 			$item =~ s/$var/\$$var/g;
 		}
 	}
-	return join(" ",@buff);
+	$in = join(" ",@buff);
+	print "#addDollar out $in\n";
+	return $in;
 }
 
 #Look for print statements in a string and FORMAT them !
 sub formatPrint {
 	my $in = shift(@_);
+	print "#format print: $in\n";
 	$in =~ /print\((.*)\)/;
+	print "\$1 = $1\n";
 	if($1 ne "") {
 		my $t = $1;
-		$in =~ s/print\(.*\);/print\"$t\\n\";/g;
+		$t =~ s/^[\'\"]//; $t =~ s/[\'\"]$//g;
+		$in = "print \"$t \\n \""
 	}
 	
    return $in;
@@ -59,19 +89,42 @@ sub checkBrace {
 	return $in;
 }
 
+#check for correct operator in any conditions
+#example: if name == "John" and age == 23:
+# string operations must be eq/ne for string
+# all numeric stays the same !
+
+
+sub checkCondition {
+	my $in = shift(@_);
+	
+	my @c = split(/and|or/, $in);
+	foreach $condition (@c) {
+		my ($lhs,$op,$rhs) = $condition =~ //;
+		
+	
+	
+	}
+	
+	
+	
+	return $in;
+
+}
+
 
 while ($line = <>) {
 
 	 #Continue and break
-	 if ($line =~ /continue/) {
+	 if ($line =~ /continue/ && $line !~ /^\#/) {
 	 	  $line =~ s/continue/next\;/g;
-	 	  print STDERR "Replacing continue";
+	 	  print STDERR "--Replacing continue--\n";
 	 	  print $line;
 	 }
 	 
-	 if ($line =~ /break/) {
+	 if ($line =~ /break/ && $line !~ /^\#/) {
 	 	 $line =~ s/break/last\;/g;
-	 	 print STDERR "Replacing break";
+	 	 print STDERR "--Replacing break--\n";
 	 	 print $line;
 	 }
 
@@ -127,7 +180,8 @@ while ($line = <>) {
     	 $condition = addDollar($2);
     	 $statement = addDollar($3);
     	 
-    	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g;
+    	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
+    	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition); 
     	 
     	 if(!defined $3 || $3 eq "") {   #on different line
@@ -143,7 +197,8 @@ while ($line = <>) {
     } elsif ($line =~ /^(\s*)while\(?([^\:]*)\)?:\s*(.*)/) {
     	 $condition = addDollar($2);
     	 $statement = addDollar($3);
-    	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g;
+    	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
+    	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition);
     	 
     	 if($3 eq "") {   #on different line
