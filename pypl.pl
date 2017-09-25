@@ -100,17 +100,34 @@ sub checkBrace {
 #check for correct operator in any conditions
 #example: if name == "John" and age == 23:
 # string operations must be eq/ne for string
-# all numeric stays the same !
 sub checkCondition {
 	my $in = shift(@_);
 	
+	#print "# \$in = $in\n";
 	#if u have any operators followed by "/' substitute !
-	$in =~ s/\s*==\s*\"/ eq \"/g;
-	$in =~ s/\s*==\s*\'/ eq \'/g;
-	$in =~ s/\s*!=\s*\"/ ne \"/g;
-	$in =~ s/\s*!=\s*\'/ ne \'/g;
+	$in =~ s/\s*==\s*\"/ eq \"/g; $in =~ s/\"\s*==\s*/\" eq /g;
+	$in =~ s/\s*==\s*\'/ eq \'/g; $in =~ s/\'\s*==\s*/\' eq /g;
+	$in =~ s/\s*!=\s*\"/ ne \"/g; $in =~ s/\"\s*!=\s*/\" ne /g;
+	$in =~ s/\s*!=\s*\'/ ne \'/g; $in =~ s/\'\s*!=\s*/\' ne /g;
 	
 	#if comparing between variable check that the variable stores a string
+	my @buff = split(/[\&\|]{2}/,$in);
+	foreach $check (@buff) {  #check example $a == $b
+		my ($var1, $op, $var2) = $check =~ /\$(\w+)\s*([!=]{2})\s*\$(\w+)/ or next;
+		#print "### \$v1:$var1//$variables{$var1}, \$op:$op, \$v2:$var2//$variables{$var2}\n";
+		
+		#if either var1 or var2 is a string var have to change
+		if($variables{$var1} =~ /[\"\']/ || $variables{$var2} =~ /[\"\']/) {
+			#print "#should be replacing for $check\n";
+			my $check2 = $check;
+			if($op =~ m/==/) { $check2 =~ s/==/eq/; }
+			if($op =~ m/!=/) { $check2 =~ s/!=/ne/; }
+			print "#\$in = $in\n";
+			$in =~ s/\Q$check\E/$check2/;
+			print "#\$out = $in\n";
+		}
+	
+	}
 	
 
 	return $in;
@@ -180,7 +197,7 @@ while ($line = <>) {
         
     #if statements
     #need to support logical operators as well
-    } elsif ($line =~ /^(\s*)if\(?([^\:]+):\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)if\(?([^\:]+)\)?:\s*(.*)/) {
     	 $space = $1;
     	 $condition = addDollar($2);
     	 $statement = addDollar($3);
@@ -189,12 +206,12 @@ while ($line = <>) {
     	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition); 
     	 
-    	 if(!defined $3 || $3 eq "") {   #on different line
+    	 if(!defined $statement || $statement eq "") {   #on different line
     	 	print "$space"."if($condition) "."\{\n";
     	 	$closingExpected++;
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$space"."if($condition) "."\{ $1"."$statement\; $1"."\}\n";
+    	 	print "$space"."if($condition) "."\{ "."$statement\;"." \}\n";
     	 }
     
     #while loop
@@ -221,10 +238,21 @@ while ($line = <>) {
     	  $t = addDollar($3);
     	  $variables{$2} = $t;  #Hash variable to values
     	  print "$1"."my \$"."$2 = $t;"."\n";
-    
-    #while loops
-    
+     
     #for loops
+    } elsif ($line =~ /^(\s*)for\s*(\w+)\s*in\s*(.*?):\s*(.*)/) {
+    	$space = $1;
+    	$loop  = $2;
+    	$iterable = $3;
+    	$variables{$loop} = 0;
+    	$statement = $4;
+    	
+    	print "#\$loop = $loop,  \$iterable = $iterable\n";
+    	#$i in range
+    	if($iterable =~ /range/) {
+    		$printz = "$space foreach $loop ($new)
+    	
+    	}
     	 
     # Lines we can't translate are turned into comments
     } else { print "#(x) $line"; }
