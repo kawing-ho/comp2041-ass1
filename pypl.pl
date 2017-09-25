@@ -11,7 +11,6 @@
 our %variables = ();
 our $closingExpected = 0;
 
-
 #All this work just for adding '$'
 #find a way to ignore any variables in quotes
 
@@ -20,7 +19,7 @@ our $closingExpected = 0;
 
 sub addDollar {
 	my $in = shift(@_);
-	print "#addDollar to $in\n";
+	#print "#addDollar to $in\n";
 	my $QUOTE = 0;
 	
 	my @buff = split(" ",$in);
@@ -28,11 +27,13 @@ sub addDollar {
 		
 		#if quote detected toggle on/off
 		if ($item =~ /[\'\"]/) {
-			print "$item matched quote\n";
+			next if $item =~ /^[\'\"].*?[\'\"]$/;
+			#print "#$item matched quote\n";
 			if($QUOTE == 0) { $QUOTE = 1; } else { $QUOTE = 0; }
+			next;
 		}
 		
-		if($QUOTE == 1) { print "skipping $item \n";}
+		#if($QUOTE == 1) { print "skipping $item \n";}
 		next if($QUOTE == 1);
 		
 		foreach $var (keys %variables) {
@@ -43,23 +44,30 @@ sub addDollar {
 		}
 	}
 	$in = join(" ",@buff);
-	print "#addDollar out $in\n";
+	#print "#addDollar out $in\n";
 	return $in;
 }
 
 #Look for print statements in a string and FORMAT them !
 sub formatPrint {
 	my $in = shift(@_);
-	print "#format print: $in\n";
-	$in =~ /print\((.*)\)/;
-	print "\$1 = $1\n";
-	if($1 ne "") {
-		my $t = $1;
-		$t =~ s/^[\'\"]//; $t =~ s/[\'\"]$//g;
-		$in = "print \"$t \\n \""
+	my $out = "";
+	my @buff = split ';' , $in;
+	
+	foreach $i (@buff) {
+		#print "#format print: $i\n";
+		#format if its print statement
+		if($i =~ /print\s*\((.*)\)/) {
+			my $t = $1;
+			$t =~ s/^[\'\"]//; $t =~ s/[\'\"]$//g;
+			$i = "print \"$t\\n\""
+		}
+		
+		if($out eq "") { $out = $i; } else { $out = $out.";".$i; }
+		#print "#\$out = $out\n";
 	}
 	
-   return $in;
+   return $out;
 }
 
 #adds extra brackets if number of brackets in a line are mismatched
@@ -93,21 +101,18 @@ sub checkBrace {
 #example: if name == "John" and age == 23:
 # string operations must be eq/ne for string
 # all numeric stays the same !
-
-
 sub checkCondition {
 	my $in = shift(@_);
 	
-	my @c = split(/and|or/, $in);
-	foreach $condition (@c) {
-		my ($lhs,$op,$rhs) = $condition =~ //;
-		
+	#if u have any operators followed by "/' substitute !
+	$in =~ s/\s*==\s*\"/ eq \"/g;
+	$in =~ s/\s*==\s*\'/ eq \'/g;
+	$in =~ s/\s*!=\s*\"/ ne \"/g;
+	$in =~ s/\s*!=\s*\'/ ne \'/g;
 	
+	#if comparing between variable check that the variable stores a string
 	
-	}
-	
-	
-	
+
 	return $in;
 
 }
@@ -141,7 +146,7 @@ while ($line = <>) {
     	} else { print $line; }
 
 	 # print(...) statements
-    } elsif ($line =~ /^(\s*)print\s*\(([\"\']?[^\)\'\"]+[\"\']?)\)/) {
+    } elsif ($line =~ /^(\s*)print\s*\(([\"\']?[^\)]+[\"\']?)\)$/) {
     	  
     	  #var substitution
 		  $printz = addDollar($2);
@@ -222,5 +227,5 @@ while ($line = <>) {
     #for loops
     	 
     # Lines we can't translate are turned into comments
-    } else { print "#$line\n"; }
+    } else { print "#(x) $line"; }
 }

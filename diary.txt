@@ -8,3 +8,5 @@
 24/09/17	14:00	15:30	Coding	Setup a test script 
 24/09/17	15:30	18:00	Debugging	Fixing some broken features 	
 25/09/17	12:00	13:00	Coding	More coding for subsets 2/3
+25/09/17	15:00	18:00	Debugging	Fixing addDollar and checkCondition function
+
