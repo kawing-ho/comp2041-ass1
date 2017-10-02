@@ -4,19 +4,13 @@
 # written by Ka Wing Ho z5087077 18th September 2017
 
 #Todo / Haven't supported
-# - comparison operators: <, <=, >, >=, !=, ==
 # - bitwise operators: | ^ & << >> ~
 
 
 our %variables = ();
 our $closingExpected = 0;
 
-#All this work just for adding '$'
-#find a way to ignore any variables in quotes
-
-#split by space will give things like print('a 
-#need to avoid anything in quotes as well
-
+#finding variables and adding '$' to them
 sub addDollar {
 	my $in = shift(@_);
 	#print "#addDollar to $in\n";
@@ -250,7 +244,7 @@ while ($line = <>) {
     	print "#\$loop = $loop,  \$iterable = $iterable\n";
     	#$i in range
     	if($iterable =~ /range/) {
-    		$printz = "$space foreach $loop ($new)
+    		$printz = "$space foreach $loop ($new)"
     	
     	}
     	 

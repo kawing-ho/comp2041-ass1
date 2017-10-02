@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# stacking function calls 
+# stacking methods
 
 s = "Hello World !"
 
