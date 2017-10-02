@@ -134,12 +134,8 @@ sub checkCondition {
 			$in =~ s/\Q$check\E/$check2/;
 			#print "#\$out = $in\n";
 		}
-	
 	}
-	
-
 	return $in;
-
 }
 
 
@@ -171,11 +167,7 @@ while ($line = <>) {
 	
 	 # Blank & comment lines can be passed unchanged
 	 # if a blank line is read in and a closing brace expected add one
-    } elsif ($line =~ /^\s*(#|$)/) {
-    	if($line =~ /$/ && $closingExpected > 0) {
-    	  print "}\n";
-    	  $closingExpected--;
-    	} else { print $line; }
+    } elsif ($line =~ /^\s*(#|$)/) { print $line;
 	 
 	 # print(...) statements / sys.stdout.write statements
     } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\)$/) {
