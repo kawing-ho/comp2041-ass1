@@ -11,7 +11,8 @@ use Text::Tabs;
 
 our %variables = ();
 our $closingExpected = 0;
-my $previousIndent = "";
+our $previousIndent = "";
+my $previousIf = "";
 
 #finding variables and adding '$' to them
 #ignore things in quotes
@@ -138,23 +139,53 @@ sub checkCondition {
 	return $in;
 }
 
+sub checkIndent {
+	my $in = shift(@_);
+	#print "#\$closingExpected = $closingExpected\n";
+
+	#check for indentation
+	my ($indent) = $in =~ /^(\s*)/;
+	my $li = length $indent;
+	 
+	if($previousIndent ne "") {
+		$pli = length $previousIndent;
+		#print "#\$li = $li, \$pli = $pli\n";
+	 	
+		#previous indent 
+		if($li < $pli && $closingExpected > 0) {
+		
+			while($li < $pli) {
+				#print "#\$pli = $pli, doing something\n";
+				$closingIndent = $previousIndent;
+				if($closingIndent =~ /^ /) { 
+					$closingIndent =~ s/^ {4}//;
+				} elsif ($closingIndent =~ /^\t/) { 
+					$closingIndent =~ s/^\t//;
+				} else { print "#error in indentations!\n";}
+				
+				$previousIndent = $closingIndent;
+				$pli = length $previousIndent;
+				if($pli != $li || $line !~ /^\s*elif|else/) {
+					print "$closingIndent}\n";
+					$closingExpected--;
+				}
+				
+			}
+	 		
+		}
+	}
+	 
+	#Don't count blank lines for previousIndent
+	$previousIndent = $indent if($line !~ /^\s*$/);
+}
 
 while ($line = <>) {
 
-	 #check for indentation
-	 my ($indent) = $line =~ /^(\s*)/;
-	 my $li = length $indent;
+	 #skip comment and blank lines after first hashbang line
+	 print "$line" and next if($line =~ /^\s*(#|$)/ && $. != 1);
 	 
-	 if($previousIndent ne "") {
-	 	$pli = length $previousIndent;
-	 	
-	 	#previous indent 
-	 	if($li < $pli && $closingExpected > 0 && $line !~ /elif|else/) {
-	 		print "$indent}\n";
-	 		$closingExpected--;
-	 	}
-	 }
-	 $previousIndent = $indent;
+	 #check Indentation at the start of line 
+	 checkIndent($line);
 	
 	 #skip import statements
 	 print "\n" and next if $line =~/^import/;
@@ -164,18 +195,14 @@ while ($line = <>) {
 
 	 # translate #! line
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
-	
-	 # Blank & comment lines can be passed unchanged
-	 # if a blank line is read in and a closing brace expected add one
-    } elsif ($line =~ /^\s*(#|$)/) { print $line;
 	 
 	 # print(...) statements / sys.stdout.write statements
     } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\)$/) {
     	  
     	  #var substitution
+    	  $space  = $1;
     	  $stdout = $2;
 		  $printz = process($3);
-    	  $space  = $1;
     	  
     	  #doing math in printz (no quotes and contains math operators)
     	  #needs to be upgraded to handle lots more math operations
@@ -214,14 +241,14 @@ while ($line = <>) {
     } elsif ($line =~ /^(\s*)else\s*:\s*(.*)/) {
     	$space = $1;
     	$statement = process($2);
-    	$closingExpected--;
     	
     	if(!defined $statement || $statement eq "") {   #on different line
-    	 	print "$space"."} else "."\{\n";
-    	 	$closingExpected++;
+    		if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{\n";
+    		} else { print "$space"."} else "."\{\n"; }
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$space"."} else "."\{ "."$statement\;"." \}\n";
+    	 	if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{ "."$statement\;"." \}\n";
+    	 	} else { print "$space"."} else "."\{ "."$statement\;"." \}\n"; $closingExpected--;}
     	 }
         
     #if/elif statements
@@ -230,7 +257,9 @@ while ($line = <>) {
     	 $space = $1;
     	 $if = $2;
     	 
-    	 if($if eq "elif") { $if = "} elsif"; $closingExpected--;}
+    	 if($if eq "elif") {
+    	 	if($previousIf =~ /\}\s*$/) { $if = "elsif" } else { $if = "} elsif" }
+    	 }
     	 
     	 $condition = process($3);
     	 $statement = process($4);
@@ -241,10 +270,16 @@ while ($line = <>) {
     	 
     	 if(!defined $statement || $statement eq "") {   #on different line
     	 	print "$space"."$if($condition) "."\{\n";
-    	 	$closingExpected++;
+    	 	if($if eq "if") {$closingExpected++;}
+    	 	
+    	 	$previousIf = "$space"."$if($condition) "."\{\n";
+    	 	
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
     	 	print "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
+    	 	if($if eq "elsif") {$closingExpected--;}
+    	 	
+    	 	$previousIf = "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
     	 }
     
     #while loop
@@ -309,9 +344,7 @@ while ($line = <>) {
     		} else { #on same line
     			$statement = formatPrint($statement);
     			print "$space"."foreach my $loop "."$newIter "."\{ "."$statement\;"." \}\n";
-    		
     		}
-    		#printz = "$space foreach $loop ($new)"
     		
     	
     	} #else if its an array/list 
@@ -324,6 +357,7 @@ while ($line = <>) {
     	 
     # Lines we can't translate are turned into comments
     } else { print "#(x) $line"; }
+    
 }
 
 #if no more STDIN but closing brace still expected add one !
@@ -340,5 +374,4 @@ while ($closingExpected > 0) {
 	$previousIndent = $closingIndent;
 	$closingExpected--;
 }
-
 
