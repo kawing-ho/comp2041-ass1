@@ -156,7 +156,7 @@ while ($line = <>) {
     	  $closingExpected--;
     	} else { print $line; }
 
-	 # print(...) statements
+	 # print(...) statements / sys.stdout.write statements
     } elsif ($line =~ /^(\s*)print\s*\(([\"\']?[^\)]+[\"\']?)\)$/) {
     	  
     	  #var substitution
@@ -188,24 +188,38 @@ while ($line = <>) {
     	  #remove extra quotes
     	  $printz =~ s/^[\"\']//g; $printz =~ s/[\"\']$//g;
     	  print "$space"."print"." \""."$printz"."\\n\";\n";
+    
+    #else statements
+    } elsif ($line =~ /^(\s*)else\s*:\s*(.*)/) {
+    	$space = $1;
+    	$statement = addDollar($2);
+    	
+    	if(!defined $statement || $statement eq "") {   #on different line
+    	 	print "$space"."else "."\{\n";
+    	 	$closingExpected++;
+    	 } else {          #on same line
+    	 	$statement = formatPrint($statement);
+    	 	print "$space"."else "."\{ "."$statement\;"." \}\n";
+    	 }
         
-    #if statements
+    #if/elif statements
     #need to support logical operators as well
-    } elsif ($line =~ /^(\s*)if\(?([^\:]+)\)?:\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)(if|elif)\(?([^\:]+)\)?:\s*(.*)/) {
     	 $space = $1;
-    	 $condition = addDollar($2);
-    	 $statement = addDollar($3);
+    	 $if = $2;
+    	 $condition = addDollar($3);
+    	 $statement = addDollar($4);
     	 
     	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
     	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition); 
     	 
     	 if(!defined $statement || $statement eq "") {   #on different line
-    	 	print "$space"."if($condition) "."\{\n";
+    	 	print "$space"."$if($condition) "."\{\n";
     	 	$closingExpected++;
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$space"."if($condition) "."\{ "."$statement\;"." \}\n";
+    	 	print "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
     	 }
     
     #while loop
@@ -217,11 +231,12 @@ while ($line = <>) {
     	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition);
     	 
-    	 if($3 eq "") {   #on different line
+    	 if(!defined $statement || $statement eq "") {   #on different line
     	 	print "$1"."while($condition) "."\{\n";
+    	 	$closingExpected++;
     	 } else {			#on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$1"."while($condition) "."\{ \n$1\t"."$statement\; \n$1"."\}\n";
+    	 	print "$1"."while($condition) "."\{ "."$statement\;"." \}\n";
     	 }
     
     
@@ -238,16 +253,50 @@ while ($line = <>) {
     	$space = $1;
     	$loop  = $2;
     	$iterable = $3;
-    	$variables{$loop} = 0;
-    	$statement = $4;
+    	$variables{$loop} = 0;  #add to list of variables
+    	$loop = addDollar($loop);
+    	$statement = addDollar($4);
     	
     	print "#\$loop = $loop,  \$iterable = $iterable\n";
     	#$i in range
     	if($iterable =~ /range/) {
-    		$printz = "$space foreach $loop ($new)"
+    		#find out which type of range it is
+    		($start,$stop,$step) = $iterable =~ /range\(\s*(\d+)\s*,?\s*(\d+)?\s*,?\s*(\d+)?\s*\)/;
+    		#print "# \$start = $start, \$stop = $stop, \$step = $step\n";
+    		
+    		if(defined $start && !defined $stop && !defined $step) {
+    			$start--; $newIter = "(0..$start)";
+    		} elsif (defined $start && defined $stop && !defined $step) {
+    			$stop--; $newIter = "($start..$stop)";
+    		} else {  #this has to be multiline for-loop
+    			$stop--; $newIter = "($start..$stop)";
+    			my $increment = "$loop = $loop + $step;"  #this has to be added at end of loop
+    		}
+    		
+    		
+    		if(!defined $statement || $statement eq "") { #on different line
+    			print "$space"."foreach $loop "."$newIter "."\{\n";
+    			$closingExpected++;
+    		} else { #on same line
+    			$statement = formatPrint($statement);
+    			print "$space"."foreach $loop "."$newIter "."\{ "."$statement\;"." \}\n";
+    		
+    		}
+    		#printz = "$space foreach $loop ($new)"
+    		
     	
-    	}
+    	} #else if its an array/list 
+    	
+    	
     	 
     # Lines we can't translate are turned into comments
     } else { print "#(x) $line"; }
 }
+
+#if no more STDIN but closing brace still expected add one !
+while ($closingExpected > 0) {
+	print "}\n";
+	$closingExpected--;
+}
+
+
