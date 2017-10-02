@@ -3,17 +3,22 @@
 # COMP2041 assignment 1:  http://www.cse.unsw.edu.au/~cs2041/assignments/pypl
 # written by Ka Wing Ho z5087077 18th September 2017
 
+use Text::Tabs;
+
 #Todo / Haven't supported
 # - bitwise operators: | ^ & << >> ~
 
 
 our %variables = ();
 our $closingExpected = 0;
+my $previousIndent = "";
 
 #finding variables and adding '$' to them
-sub addDollar {
+#ignore things in quotes
+#find arrays and adding '@' to them
+sub process {
 	my $in = shift(@_);
-	#print "#addDollar to $in\n";
+	#print "#process to $in\n";
 	my $QUOTE = 0;
 	
 	my @buff = split(" ",$in);
@@ -38,7 +43,16 @@ sub addDollar {
 		}
 	}
 	$in = join(" ",@buff);
-	#print "#addDollar out $in\n";
+	
+	#checking $in for int() function calls
+	if($in =~ /\bint\((.*?)\)/) {
+		my $arg = $1;
+		my $rep = "int($arg)";
+		
+		$in =~ s/\Q$rep\E/int $arg/;
+		
+	}
+	
 	return $in;
 }
 
@@ -116,9 +130,9 @@ sub checkCondition {
 			my $check2 = $check;
 			if($op =~ m/==/) { $check2 =~ s/==/eq/; }
 			if($op =~ m/!=/) { $check2 =~ s/!=/ne/; }
-			print "#\$in = $in\n";
+			#print "#\$in = $in\n";
 			$in =~ s/\Q$check\E/$check2/;
-			print "#\$out = $in\n";
+			#print "#\$out = $in\n";
 		}
 	
 	}
@@ -131,19 +145,26 @@ sub checkCondition {
 
 while ($line = <>) {
 
-	 #Continue and break
-	 if ($line =~ /continue/ && $line !~ /^\#/) {
-	 	  $line =~ s/continue/next\;/g;
-	 	  print STDERR "--Replacing continue--\n";
-	 	  print $line;
-	 }
+	 #check for indentation
+	 my ($indent) = $line =~ /^(\s*)/;
+	 my $li = length $indent;
 	 
-	 if ($line =~ /break/ && $line !~ /^\#/) {
-	 	 $line =~ s/break/last\;/g;
-	 	 print STDERR "--Replacing break--\n";
-	 	 print $line;
+	 if($previousIndent ne "") {
+	 	$pli = length $previousIndent;
+	 	
+	 	#previous indent 
+	 	if($li < $pli && $closingExpected > 0 && $line !~ /elif|else/) {
+	 		print "$indent}\n";
+	 		$closingExpected--;
+	 	}
 	 }
-
+	 $previousIndent = $indent;
+	
+	 #skip import statements
+	 print "\n" and next if $line =~/^import/;
+	 
+	 #change all instances of readline to STDIN
+	 $line =~ s/sys.stdin.readline\(\)/<STDIN>/;
 
 	 # translate #! line
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
@@ -155,12 +176,13 @@ while ($line = <>) {
     	  print "}\n";
     	  $closingExpected--;
     	} else { print $line; }
-
+	 
 	 # print(...) statements / sys.stdout.write statements
-    } elsif ($line =~ /^(\s*)print\s*\(([\"\']?[^\)]+[\"\']?)\)$/) {
+    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\)$/) {
     	  
     	  #var substitution
-		  $printz = addDollar($2);
+    	  $stdout = $2;
+		  $printz = process($3);
     	  $space  = $1;
     	  
     	  #doing math in printz (no quotes and contains math operators)
@@ -187,19 +209,27 @@ while ($line = <>) {
     	  
     	  #remove extra quotes
     	  $printz =~ s/^[\"\']//g; $printz =~ s/[\"\']$//g;
-    	  print "$space"."print"." \""."$printz"."\\n\";\n";
+    	  
+    	  
+    	  #print vs sys.stdout
+    	  if($stdout =~ /print/) {
+    	  		print "$space"."print"." \""."$printz"."\\n\";\n";
+    	  } else {
+    	  		print "$space"."print"." \""."$printz"."\";\n";
+    	  }
     
     #else statements
     } elsif ($line =~ /^(\s*)else\s*:\s*(.*)/) {
     	$space = $1;
-    	$statement = addDollar($2);
+    	$statement = process($2);
+    	$closingExpected--;
     	
     	if(!defined $statement || $statement eq "") {   #on different line
-    	 	print "$space"."else "."\{\n";
+    	 	print "$space"."} else "."\{\n";
     	 	$closingExpected++;
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$space"."else "."\{ "."$statement\;"." \}\n";
+    	 	print "$space"."} else "."\{ "."$statement\;"." \}\n";
     	 }
         
     #if/elif statements
@@ -207,8 +237,11 @@ while ($line = <>) {
     } elsif ($line =~ /^(\s*)(if|elif)\(?([^\:]+)\)?:\s*(.*)/) {
     	 $space = $1;
     	 $if = $2;
-    	 $condition = addDollar($3);
-    	 $statement = addDollar($4);
+    	 
+    	 if($if eq "elif") { $if = "} elsif"; $closingExpected--;}
+    	 
+    	 $condition = process($3);
+    	 $statement = process($4);
     	 
     	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
     	 $condition = checkCondition($condition);
@@ -225,8 +258,8 @@ while ($line = <>) {
     #while loop
     #need to support logical operators as well
     } elsif ($line =~ /^(\s*)while\(?([^\:]*)\)?:\s*(.*)/) {
-    	 $condition = addDollar($2);
-    	 $statement = addDollar($3);
+    	 $condition = process($2);
+    	 $statement = process($3);
     	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
     	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition);
@@ -243,10 +276,16 @@ while ($line = <>) {
     #variables
     #needs to be upgraded to handle math operations in variables as well
     #needs to be upgraded to handle other variables as well ...
-    } elsif ($line =~ /(\s*)([\w]+)\s*=\s*([\w \_\*\/\+\"\'\\-]+)/) {
-    	  $t = addDollar($3);
-    	  $variables{$2} = $t;  #Hash variable to values
-    	  print "$1"."my \$"."$2 = $t;"."\n";
+    } elsif ($line =~ /(\s*)([\w]+)\s*=\s*([\w \_\*\/\+\%\"\'\\\(\)\<\>-]+)/) {
+    	  $t = process($3);
+    	  
+    	  if(!defined $variables{$2}) {
+    	  		$variables{$2} = $t;  #Hash variable to values
+    	  		print "$1"."my \$"."$2 = $t;"."\n";
+    	  } else {
+    	  		$variables{$2} = $t;  #Hash variable to values
+    	  		print "$1"."\$"."$2 = $t;"."\n"; 
+    	  }
      
     #for loops
     } elsif ($line =~ /^(\s*)for\s*(\w+)\s*in\s*(.*?):\s*(.*)/) {
@@ -254,32 +293,30 @@ while ($line = <>) {
     	$loop  = $2;
     	$iterable = $3;
     	$variables{$loop} = 0;  #add to list of variables
-    	$loop = addDollar($loop);
-    	$statement = addDollar($4);
+    	$loop = process($loop);
+    	$statement = process($4);
     	
-    	print "#\$loop = $loop,  \$iterable = $iterable\n";
     	#$i in range
     	if($iterable =~ /range/) {
     		#find out which type of range it is
     		($start,$stop,$step) = $iterable =~ /range\(\s*(\d+)\s*,?\s*(\d+)?\s*,?\s*(\d+)?\s*\)/;
-    		#print "# \$start = $start, \$stop = $stop, \$step = $step\n";
     		
     		if(defined $start && !defined $stop && !defined $step) {
     			$start--; $newIter = "(0..$start)";
     		} elsif (defined $start && defined $stop && !defined $step) {
     			$stop--; $newIter = "($start..$stop)";
-    		} else {  #this has to be multiline for-loop
+    		} else {  #not handled in subset3 yet
     			$stop--; $newIter = "($start..$stop)";
     			my $increment = "$loop = $loop + $step;"  #this has to be added at end of loop
     		}
     		
     		
     		if(!defined $statement || $statement eq "") { #on different line
-    			print "$space"."foreach $loop "."$newIter "."\{\n";
+    			print "$space"."foreach my $loop "."$newIter "."\{\n";
     			$closingExpected++;
     		} else { #on same line
     			$statement = formatPrint($statement);
-    			print "$space"."foreach $loop "."$newIter "."\{ "."$statement\;"." \}\n";
+    			print "$space"."foreach my $loop "."$newIter "."\{ "."$statement\;"." \}\n";
     		
     		}
     		#printz = "$space foreach $loop ($new)"
@@ -287,7 +324,11 @@ while ($line = <>) {
     	
     	} #else if its an array/list 
     	
-    	
+    #continue and break
+    } elsif ($line =~ /continue|break/ && $line !~ /^\#/) {
+    		$line =~ s/continue/next\;/g;
+    		$line =~ s/break/last\;/g;
+    		print $line;
     	 
     # Lines we can't translate are turned into comments
     } else { print "#(x) $line"; }
@@ -295,7 +336,16 @@ while ($line = <>) {
 
 #if no more STDIN but closing brace still expected add one !
 while ($closingExpected > 0) {
-	print "}\n";
+	#print "#$previousIndent/previousIndent\n";
+	$closingIndent = $previousIndent;
+	
+	if($closingIndent =~ /^ /) {    $closingIndent =~ s/^ {4}//;
+	} elsif ($closingIndent =~ /^\t/) { $closingIndent =~ s/^\t//;
+	} else { print "#error in indentations!\n";}
+	
+	#print "#$closingIndent/closingIndent\n";
+	print "$closingIndent}\n";
+	$previousIndent = $closingIndent;
 	$closingExpected--;
 }
 

@@ -1,2 +1,17 @@
 #!/usr/bin/python3
-# put your demo script here
+# nested while loops
+
+i = 0
+j = 0
+k = 0
+
+i = 5
+while (i > 0):
+	j = 4
+	while (j > 0):
+		k = 3
+		while (k > 0):
+			print("*")
+			k = k - 1
+		j = j -1
+	i = i -1
