@@ -181,6 +181,8 @@ sub checkIndent {
 
 while ($line = <>) {
 
+	 #print "#processing $line";
+
 	 #skip comment and blank lines after first hashbang line
 	 print "$line" and next if($line =~ /^\s*(#|$)/ && $. != 1);
 	 
@@ -284,7 +286,7 @@ while ($line = <>) {
     
     #while loop
     #need to support logical operators as well
-    } elsif ($line =~ /^(\s*)while\(?([^\:]*)\)?:\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)while\s*\(?([^\:]*)\)?:\s*(.*)/) {
     	 $condition = process($2);
     	 $statement = process($3);
     	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
@@ -304,15 +306,16 @@ while ($line = <>) {
     #needs to be upgraded to handle math operations in variables as well
     #needs to be upgraded to handle other variables as well ...
     } elsif ($line =~ /(\s*)([\w]+)\s*=\s*([\w \_\*\/\+\%\"\'\\\(\)\<\>-]+)/) {
+    	  $space = $1;
     	  $t = process($3);
+    	  $varname = $2;
     	  
-    	  if(!defined $variables{$2}) {
-    	  		$variables{$2} = $t;  #Hash variable to values
-    	  		print "$1"."my \$"."$2 = $t;"."\n";
-    	  } else {
-    	  		$variables{$2} = $t;  #Hash variable to values
-    	  		print "$1"."\$"."$2 = $t;"."\n"; 
-    	  }
+    	  #substitue // for /
+    	  if($t =~ m/\w+\s*\/\/\s*\w+/) { $t =~ s/\/\//\//g;}
+    	  
+    	  if(!defined $variables{$varname}) {$declare = "my ";} else {$declare = '';}
+    	  $variables{$varname} = $t;  #Hash variable to values
+    	  print "$space"."$declare\$"."$varname = $t;"."\n";
      
     #for loops
     } elsif ($line =~ /^(\s*)for\s*(\w+)\s*in\s*(.*?):\s*(.*)/) {
@@ -326,12 +329,17 @@ while ($line = <>) {
     	#$i in range
     	if($iterable =~ /range/) {
     		#find out which type of range it is
-    		($start,$stop,$step) = $iterable =~ /range\(\s*(\d+)\s*,?\s*(\d+)?\s*,?\s*(\d+)?\s*\)/;
+    		($start,$stop,$step) = $iterable =~ /range\(\s*([^\,]+)\s*,?\s*([^\,]+)?\s*,?\s*([^\)]*)?\s*\)/;
+    		print "\$start = $start, \$stop = $stop, \$step = $step\n";
     		
-    		if(defined $start && !defined $stop && !defined $step) {
+    		if(defined $start && !defined $stop && (!defined $step || $step eq "")) {
     			$start--; $newIter = "(0..$start)";
-    		} elsif (defined $start && defined $stop && !defined $step) {
-    			$stop--; $newIter = "($start..$stop)";
+    		} elsif (defined $start && defined $stop && (!defined $step || $step eq "")) {
+    			if ($stop =~ m/^\d+$/) {$stop--; $newIter = "($start..$stop)";}
+    			else { 
+    			
+    			}
+    			
     		} else {  #not handled in subset3 yet
     			$stop--; $newIter = "($start..$stop)";
     			my $increment = "$loop = $loop + $step;"  #this has to be added at end of loop

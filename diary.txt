@@ -14,4 +14,4 @@
 02/10/17	20:30	21:30	Debugging	Fixing up styles/commenting and other stuff
 02/10/17	23:00	00:00	Coding	More work towards Subset 3
 03/10/17	00:00	02:07	Debugging	Getting indenting to work properly
-
+03/10/17	10:00	12:00	Debugging	debugging for loops
