@@ -41,12 +41,3 @@ if name == var: print("name == 'var'")
 if name != var and name != b or name == a: print("name != 'var'")  #since name contains string but a/b are numerical it does string comparison anyways
 if name == var or name != var: print('This evaluates to True')
 
-
-#if "j" in name or "J" in name:
-#   print("There's a j/J !")
-
-#if "a" not in name:
-#   print("There's no a !")
-
-
-

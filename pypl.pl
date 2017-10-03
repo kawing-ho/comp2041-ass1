@@ -330,15 +330,16 @@ while ($line = <>) {
     	if($iterable =~ /range/) {
     		#find out which type of range it is
     		($start,$stop,$step) = $iterable =~ /range\(\s*([^\,]+)\s*,?\s*([^\,]+)?\s*,?\s*([^\)]*)?\s*\)/;
-    		print "\$start = $start, \$stop = $stop, \$step = $step\n";
+    		
+    		
+    		$start = process($start); $stop = process($stop); $step = process($step);
+    		#print "\$start = $start, \$stop = $stop, \$step = $step\n";
     		
     		if(defined $start && !defined $stop && (!defined $step || $step eq "")) {
     			$start--; $newIter = "(0..$start)";
     		} elsif (defined $start && defined $stop && (!defined $step || $step eq "")) {
-    			if ($stop =~ m/^\d+$/) {$stop--; $newIter = "($start..$stop)";}
-    			else { 
-    			
-    			}
+    			if ($stop =~ m/^\d+$/) {$stop--;} else { $stop = $stop." -1 "; }
+    			$newIter = "($start..$stop)";
     			
     		} else {  #not handled in subset3 yet
     			$stop--; $newIter = "($start..$stop)";
