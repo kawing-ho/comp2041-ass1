@@ -5,6 +5,9 @@
 i = 0  # i should not have a dollar here
 j = 0
 k = 0
+l = 5
+
+print(i + j + k + l)  #this doesn't work yet
 
 i = 5
 while (i > 0):

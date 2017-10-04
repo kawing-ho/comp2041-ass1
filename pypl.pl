@@ -199,8 +199,8 @@ while ($line = <>) {
 	 # translate #! line
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
 	 
-	 # print(...) statements / sys.stdout.write statements
-    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\)\s*(#.*)*$/) {
+	 # print(...) statements / sys.stdout.write statements  #[^\)]
+    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?.*[\"\']?)\)\s*(#.*)*$/) {
     	  
     	  #var substitution
     	  $space  = $1;
@@ -209,25 +209,39 @@ while ($line = <>) {
 		  $comment = $4 || "";
     	  
     	  #doing math in printz (no quotes and contains math operators)
-    	  #needs to be upgraded to handle lots more math operations
-    	  
     	  if($printz !~ /^[\"\'][^\'\"]*[\'\"]$/ && $printz =~/[\*\+\-\/\%]+/) {
-    	  		($v1,$op,$v2) = $printz =~ /(\$\w+)\s*([\*\+\-\/\%]+)\s*(\$\w+)/;
-    	  		$v1 =~ s/^\$//g;  $v2 =~ s/^\$//g;
     	  		
-    	  		if($op eq "+") {
-    	  			$printz = $variables{$v1} + $variables{$v2};
-    	  		} elsif ($op eq "*") {
-    	  			$printz = $variables{$v1} * $variables{$v2};
-    	  		} elsif ($op eq "**") {
-    	  			$printz = $variables{$v1} ** $variables{$v2};
-    	  		} elsif ($op eq "-") {
-    	  			$printz = $variables{$v1} - $variables{$v2};
-    	  		} elsif ($op eq "/") {
-    	  			$printz = $variables{$v1} / $variables{$v2};
-    	  		} elsif ($op eq "%") {
-    	  			$printz = $variables{$v1} % $variables{$v2};
-    	  		} else { print"# Unknown operator $op\n"; }
+    	  		#interpolate the values of variables into the printz string
+    	  		foreach $var (keys %variables) {
+    	  			next if $printz !~ m/\$$var/;
+    	  			$value = $variables{$var};
+    	  			$replace = "$value";
+    	  			$printz =~ s/(\$$var)/$replace/g;
+    	  		}
+    	  		
+    	  		#substitue // for /
+    	  		$printz =~ s/\/\//\//g;
+    	  		
+    	  		$printz = eval $printz;
+    	  		
+    	  		#print "\$printz = $printz -> \$math = $math\n";
+    	  
+#    	  		($v1,$op,$v2) = $printz =~ /(\$\w+)\s*([\*\+\-\/\%]+)\s*(\$\w+)/;
+#    	  		$v1 =~ s/^\$//g;  $v2 =~ s/^\$//g;
+    	  		
+#    	  		if($op eq "+") {
+#    	  			$printz = $variables{$v1} + $variables{$v2};
+#    	  		} elsif ($op eq "*") {
+#    	  			$printz = $variables{$v1} * $variables{$v2};
+#    	  		} elsif ($op eq "**") {
+ #   	  			$printz = $variables{$v1} ** $variables{$v2};
+ #   	  		} elsif ($op eq "-") {
+#    	  			$printz = $variables{$v1} - $variables{$v2};
+#    	  		} elsif ($op eq "/") {
+##    	  			$printz = $variables{$v1} / $variables{$v2};
+#    	  		} elsif ($op eq "%") {
+#    	  			$printz = $variables{$v1} % $variables{$v2};
+#    	  		} else { print"# Unknown operator $op\n"; }
     	  }
     	  
     	  #remove extra quotes
