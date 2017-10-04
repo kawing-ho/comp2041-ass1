@@ -190,8 +190,8 @@ while ($line = <>) {
 	 #check Indentation at the start of line 
 	 checkIndent($line);
 	
-	 #skip import statements
-	 print "\n" and next if $line =~/^import/;
+	 #comment out import statements
+	 print "#".$line and next if $line =~/^import/;
 	 
 	 #change all instances of readline to STDIN
 	 $line =~ s/sys.stdin.readline\(\)/<STDIN>/g;
@@ -200,12 +200,13 @@ while ($line = <>) {
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
 	 
 	 # print(...) statements / sys.stdout.write statements
-    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\).*$/) {
+    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\)\s*(#.*)*$/) {
     	  
     	  #var substitution
     	  $space  = $1;
     	  $stdout = $2;
 		  $printz = process($3);
+		  $comment = $4 || "";
     	  
     	  #doing math in printz (no quotes and contains math operators)
     	  #needs to be upgraded to handle lots more math operations
@@ -235,31 +236,33 @@ while ($line = <>) {
     	  
     	  #print vs sys.stdout
     	  if($stdout =~ /print/) {
-    	  		print "$space"."print"." \""."$printz"."\\n\";\n";
+    	  		print "$space"."print"." \""."$printz"."\\n\"; $comment\n";
     	  } else {
-    	  		print "$space"."print"." \""."$printz"."\";\n";
+    	  		print "$space"."print"." \""."$printz"."\"; $comment\n";
     	  }
     
     #else statements
-    } elsif ($line =~ /^(\s*)else\s*:\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)else\s*:\s*(.*?)\s*(#.*)*$/) {
     	$space = $1;
     	$statement = process($2);
+    	$comment = $3 || "";
     	
     	if(!defined $statement || $statement eq "") {   #on different line
     		$closingExpected++;
-    		if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{\n";
-    		} else { print "$space"."} else "."\{\n"; }
+    		if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{ $comment\n";
+    		} else { print "$space"."} else "."\{ $comment\n"; }
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{ "."$statement\;"." \}\n";
-    	 	} else { print "$space"."} else "."\{ "."$statement\;"." \}\n"; $closingExpected--;}
+    	 	if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{ "."$statement\;"." \} $comment\n";
+    	 	} else { print "$space"."} else "."\{ "."$statement\;"." \} $comment\n"; $closingExpected--;}
     	 }
         
     #if/elif statements
     #need to support logical operators as well
-    } elsif ($line =~ /^(\s*)(if|elif)\(?([^\:]+)\)?:\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)(if|elif)\(?([^\:]+)\)?:\s*(.*?)\s*(#.*)*$/) {
     	 $space = $1;
     	 $if = $2;
+    	 $comment = $5 || "";
     	 
     	 if($if eq "elif") {
     	 	if($previousIf =~ /\}\s*$/) { $if = "elsif" } else { $if = "} elsif"; }
@@ -273,35 +276,36 @@ while ($line = <>) {
     	 $condition = checkBrace($condition); 
     	 
     	 if(!defined $statement || $statement eq "") {   #on different line
-    	 	print "$space"."$if($condition) "."\{\n";
+    	 	print "$space"."$if($condition) "."\{ $comment\n";
     	 	#if($if eq "if") {$closingExpected++;}
     	 	$closingExpected++;
     	 	
-    	 	$previousIf = "$space"."$if($condition) "."\{\n";
+    	 	$previousIf = "$space"."$if($condition) "."\{ $comment\n";
     	 	
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
-    	 	if($if eq "elsif") {$closingExpected--; print "#-----lol\n";}
+    	 	print "$space"."$if($condition) "."\{ "."$statement\;"." \} $comment\n";
+    	 	if($if eq "elsif") {$closingExpected--;}
     	 	
-    	 	$previousIf = "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
+    	 	$previousIf = "$space"."$if($condition) "."\{ "."$statement\;"." \} $comment\n";
     	 }
     
     #while loop
     #need to support logical operators as well
-    } elsif ($line =~ /^(\s*)while\s*\(?([^\:]*)\)?:\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)while\s*\(?([^\:]*)\)?:\s*(.*?)\s*(#.*)*$/) {
     	 $condition = process($2);
     	 $statement = process($3);
+    	 $comment = $4 || "";
     	 $condition =~ s/and/\&\&/g; $condition =~ s/or/\|\|/g; $condition =~ s/not/\!/g;
     	 $condition = checkCondition($condition);
     	 $condition = checkBrace($condition);
     	 
     	 if(!defined $statement || $statement eq "") {   #on different line
-    	 	print "$1"."while($condition) "."\{\n";
+    	 	print "$1"."while($condition) "."\{ $comment\n";
     	 	$closingExpected++;
     	 } else {			#on same line
     	 	$statement = formatPrint($statement);
-    	 	print "$1"."while($condition) "."\{ "."$statement\;"." \}\n";
+    	 	print "$1"."while($condition) "."\{ "."$statement\;"." \} $comment\n";
     	 }
     
     
@@ -309,9 +313,10 @@ while ($line = <>) {
     #needs to be upgraded to handle math operations in variables as well
     #needs to be upgraded to handle other variables as well ...
     #\s*([\w \_\*\/\+\%\"\'\\\(\)\<\>-]+)
-    } elsif ($line =~ /(\s*)([\w]+)\s*=\s*(.*)/) {
+    } elsif ($line =~ /(\s*)([\w]+)\s*=\s*(.*?)\s*(#.*)*$/) {
     	  $space = $1;
     	  $varname = $2;
+    	  $comment = $4 || "";
     	  $t = process($3);
     	  
     	  
@@ -320,13 +325,14 @@ while ($line = <>) {
     	  
     	  if(!defined $variables{$varname}) {$declare = "my ";} else {$declare = '';}
     	  $variables{$varname} = $t;  #Hash variable to values
-    	  print "$space"."$declare\$"."$varname = $t;"."\n";
+    	  print "$space"."$declare\$"."$varname = $t; $comment"."\n";
      
     #for loops
-    } elsif ($line =~ /^(\s*)for\s*(\w+)\s*in\s*(.*?):\s*(.*)/) {
+    } elsif ($line =~ /^(\s*)for\s*(\w+)\s*in\s*(.*?):\s*(.*?)\s*(#.*)*$/) {
     	$space = $1;
     	$loop  = $2;
     	$iterable = $3;
+    	$comment = $5 || "";
     	$variables{$loop} = 0;  #add to list of variables
     	$loop = process($loop);
     	$statement = process($4);
@@ -353,11 +359,11 @@ while ($line = <>) {
     		
     		
     		if(!defined $statement || $statement eq "") { #on different line
-    			print "$space"."foreach my $loop "."$newIter "."\{\n";
+    			print "$space"."foreach my $loop "."$newIter "."\{ $comment\n";
     			$closingExpected++;
     		} else { #on same line
     			$statement = formatPrint($statement);
-    			print "$space"."foreach my $loop "."$newIter "."\{ "."$statement\;"." \}\n";
+    			print "$space"."foreach my $loop "."$newIter "."\{ "."$statement\;"." \} $comment\n";
     		}
     		
     	

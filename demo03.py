@@ -1,5 +1,6 @@
 #!/usr/bin/python3
-# # - bitwise operators: | ^ & << >> ~
+# - bitwise operators: | ^ & << >> ~
+# haven't gotten this working yet
 
 a =  1000
 b = 10000

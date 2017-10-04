@@ -1,5 +1,6 @@
 #!/usr/bin/python3
 # nested if/else statements (harder indentation testing)
+# also testing for accidental variable interpolation in strings
 
 true = "True"
 false = "False"
