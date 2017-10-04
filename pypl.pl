@@ -49,7 +49,7 @@ sub process {
 		my $arg = $1;
 		my $rep = "int($arg)";
 		my $name = $arg; $name =~ s/^\$//;
-		print "#\$in = $in, \$arg = $arg with value $variables{$name}\n";
+		#print "#\$in = $in, \$arg = $arg with value $variables{$name}\n";
 		#replace variable with int version as well
 		$variables{$name} = int $variables{$name} if(defined $variables{$name});
 		
@@ -316,22 +316,22 @@ while ($line = <>) {
     	  $varname = $2;
     	  $comment = $4 || "";
     	  $t = process($3);
-    	  
+    	  if($t !~ /^[\"\'][^\'\"]*[\'\"]$/) {$t =~ s/\/\//\//g;}
     	  #doing math in variables (no quotes and contains math operators)
-    	  if($t !~ /^[\"\'][^\'\"]*[\'\"]$/ && $t =~/[\*\+\-\/\%]+/) {
+#    	  if($t !~ /^[\"\'][^\'\"]*[\'\"]$/ && $t =~/[\*\+\-\/\%]+/) {
     	  		
     	  		#interpolate the values of variables into the printz string
-    	  		foreach $var (keys %variables) {
-    	  			next if $t !~ m/\$$var/;
-    	  			$value = $variables{$var};
-    	  			$replace = "$value";
-    	  			$t =~ s/(\$$var)/$replace/g;
-    	  		}
+#    	  		foreach $var (keys %variables) {
+#    	  			next if $t !~ m/\$$var/;
+#    	  			$value = $variables{$var};
+#    	  			$replace = "$value";
+#    	  			$t =~ s/(\$$var)/$replace/g;
+#    	  		}
     	  		
     	  		#substitue // for /
-    	  		$t =~ s/\/\//\//g;
-    	  		$t = eval $t;
-    	  }
+#    	  		$t =~ s/\/\//\//g;
+#    	  		$t = eval $t;
+#    	  }
     	  
     	  #special treatment for int( $xxx )
     	  if($t =~ /int\s*\$(\w+)/) { $t = int $variables{$1};}
