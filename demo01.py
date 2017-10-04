@@ -7,7 +7,7 @@ j = 0
 k = 0
 l = 5
 
-print(i + j + k + l)  #this doesn't work yet
+print(i + j + k + l)
 
 i = 5
 while (i > 0):

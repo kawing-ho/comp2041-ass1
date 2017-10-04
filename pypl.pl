@@ -46,9 +46,12 @@ sub process {
 	
 	#checking $in for int() function calls
 	if($in =~ /\bint\((.*?)\)/) {
-		print "#\$in = $in\n";
 		my $arg = $1;
 		my $rep = "int($arg)";
+		my $name = $arg; $name =~ s/^\$//;
+		print "#\$in = $in, \$arg = $arg with value $variables{$name}\n";
+		#replace variable with int version as well
+		$variables{$name} = int $variables{$name} if(defined $variables{$name});
 		
 		$in =~ s/\Q$rep\E/int $arg/g;
 		
@@ -216,32 +219,13 @@ while ($line = <>) {
     	  			next if $printz !~ m/\$$var/;
     	  			$value = $variables{$var};
     	  			$replace = "$value";
+    	  			print "#$var has value $value\n";
     	  			$printz =~ s/(\$$var)/$replace/g;
     	  		}
     	  		
     	  		#substitue // for /
     	  		$printz =~ s/\/\//\//g;
-    	  		
     	  		$printz = eval $printz;
-    	  		
-    	  		#print "\$printz = $printz -> \$math = $math\n";
-    	  
-#    	  		($v1,$op,$v2) = $printz =~ /(\$\w+)\s*([\*\+\-\/\%]+)\s*(\$\w+)/;
-#    	  		$v1 =~ s/^\$//g;  $v2 =~ s/^\$//g;
-    	  		
-#    	  		if($op eq "+") {
-#    	  			$printz = $variables{$v1} + $variables{$v2};
-#    	  		} elsif ($op eq "*") {
-#    	  			$printz = $variables{$v1} * $variables{$v2};
-#    	  		} elsif ($op eq "**") {
- #   	  			$printz = $variables{$v1} ** $variables{$v2};
- #   	  		} elsif ($op eq "-") {
-#    	  			$printz = $variables{$v1} - $variables{$v2};
-#    	  		} elsif ($op eq "/") {
-##    	  			$printz = $variables{$v1} / $variables{$v2};
-#    	  		} elsif ($op eq "%") {
-#    	  			$printz = $variables{$v1} % $variables{$v2};
-#    	  		} else { print"# Unknown operator $op\n"; }
     	  }
     	  
     	  #remove extra quotes
@@ -333,9 +317,24 @@ while ($line = <>) {
     	  $comment = $4 || "";
     	  $t = process($3);
     	  
+    	  #doing math in variables (no quotes and contains math operators)
+    	  if($t !~ /^[\"\'][^\'\"]*[\'\"]$/ && $t =~/[\*\+\-\/\%]+/) {
+    	  		
+    	  		#interpolate the values of variables into the printz string
+    	  		foreach $var (keys %variables) {
+    	  			next if $t !~ m/\$$var/;
+    	  			$value = $variables{$var};
+    	  			$replace = "$value";
+    	  			$t =~ s/(\$$var)/$replace/g;
+    	  		}
+    	  		
+    	  		#substitue // for /
+    	  		$t =~ s/\/\//\//g;
+    	  		$t = eval $t;
+    	  }
     	  
-    	  #substitue // for /
-    	  if($t =~ m/\w+\s*\/\/\s*\w+/) { $t =~ s/\/\//\//g;}
+    	  #special treatment for int( $xxx )
+    	  if($t =~ /int\s*\$(\w+)/) { $t = int $variables{$1};}
     	  
     	  if(!defined $variables{$varname}) {$declare = "my ";} else {$declare = '';}
     	  $variables{$varname} = $t;  #Hash variable to values
