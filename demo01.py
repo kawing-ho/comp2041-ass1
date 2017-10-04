@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # nested while loops
 
-i = 0
+i = 0  # i should not have a dollar here
 j = 0
 k = 0
 

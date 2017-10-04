@@ -19,7 +19,6 @@ my $previousIf = "";
 #find arrays and adding '@' to them
 sub process {
 	my $in = shift(@_);
-	#print "#process to $in\n";
 	my $QUOTE = 0;
 	
 	my @buff = split(" ",$in);
@@ -47,10 +46,11 @@ sub process {
 	
 	#checking $in for int() function calls
 	if($in =~ /\bint\((.*?)\)/) {
+		print "#\$in = $in\n";
 		my $arg = $1;
 		my $rep = "int($arg)";
 		
-		$in =~ s/\Q$rep\E/int $arg/;
+		$in =~ s/\Q$rep\E/int $arg/g;
 		
 	}
 	
@@ -157,7 +157,7 @@ sub checkIndent {
 			while($li < $pli) {
 				#print "#\$pli = $pli, doing something\n";
 				$closingIndent = $previousIndent;
-				if($closingIndent =~ /^ /) { 
+				if($closingIndent =~ /^ /) {    #add support for tabs/4space/3space later
 					$closingIndent =~ s/^ {4}//;
 				} elsif ($closingIndent =~ /^\t/) { 
 					$closingIndent =~ s/^\t//;
@@ -167,8 +167,9 @@ sub checkIndent {
 				$pli = length $previousIndent;
 				if($pli != $li || $line !~ /^\s*elif|else/) {
 					print "$closingIndent}\n";
-					$closingExpected--;
+					#$closingExpected--;
 				}
+				$closingExpected--;
 				
 			}
 	 		
@@ -193,13 +194,13 @@ while ($line = <>) {
 	 print "\n" and next if $line =~/^import/;
 	 
 	 #change all instances of readline to STDIN
-	 $line =~ s/sys.stdin.readline\(\)/<STDIN>/;
+	 $line =~ s/sys.stdin.readline\(\)/<STDIN>/g;
 
 	 # translate #! line
     if ($line =~ /^#!/ && $. == 1) { print "#!/usr/bin/perl -w\n";
 	 
 	 # print(...) statements / sys.stdout.write statements
-    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\)$/) {
+    } elsif ($line =~ /^(\s*)(print|sys.stdout.write)\s*\(([\"\']?[^\)]*[\"\']?)\).*$/) {
     	  
     	  #var substitution
     	  $space  = $1;
@@ -245,6 +246,7 @@ while ($line = <>) {
     	$statement = process($2);
     	
     	if(!defined $statement || $statement eq "") {   #on different line
+    		$closingExpected++;
     		if($previousIf =~ /\}\s*$/) { print "$space"."else "."\{\n";
     		} else { print "$space"."} else "."\{\n"; }
     	 } else {          #on same line
@@ -260,7 +262,7 @@ while ($line = <>) {
     	 $if = $2;
     	 
     	 if($if eq "elif") {
-    	 	if($previousIf =~ /\}\s*$/) { $if = "elsif" } else { $if = "} elsif" }
+    	 	if($previousIf =~ /\}\s*$/) { $if = "elsif" } else { $if = "} elsif"; }
     	 }
     	 
     	 $condition = process($3);
@@ -272,14 +274,15 @@ while ($line = <>) {
     	 
     	 if(!defined $statement || $statement eq "") {   #on different line
     	 	print "$space"."$if($condition) "."\{\n";
-    	 	if($if eq "if") {$closingExpected++;}
+    	 	#if($if eq "if") {$closingExpected++;}
+    	 	$closingExpected++;
     	 	
     	 	$previousIf = "$space"."$if($condition) "."\{\n";
     	 	
     	 } else {          #on same line
     	 	$statement = formatPrint($statement);
     	 	print "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
-    	 	if($if eq "elsif") {$closingExpected--;}
+    	 	if($if eq "elsif") {$closingExpected--; print "#-----lol\n";}
     	 	
     	 	$previousIf = "$space"."$if($condition) "."\{ "."$statement\;"." \}\n";
     	 }
@@ -305,10 +308,12 @@ while ($line = <>) {
     #variables
     #needs to be upgraded to handle math operations in variables as well
     #needs to be upgraded to handle other variables as well ...
-    } elsif ($line =~ /(\s*)([\w]+)\s*=\s*([\w \_\*\/\+\%\"\'\\\(\)\<\>-]+)/) {
+    #\s*([\w \_\*\/\+\%\"\'\\\(\)\<\>-]+)
+    } elsif ($line =~ /(\s*)([\w]+)\s*=\s*(.*)/) {
     	  $space = $1;
-    	  $t = process($3);
     	  $varname = $2;
+    	  $t = process($3);
+    	  
     	  
     	  #substitue // for /
     	  if($t =~ m/\w+\s*\/\/\s*\w+/) { $t =~ s/\/\//\//g;}
